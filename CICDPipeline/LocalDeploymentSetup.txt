@@ -1,0 +1,63 @@
+#Create VM for local deployment
+sudo apt update
+
+
+#Install NodeJS
+# installs nvm (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# download and install Node.js (you may need to restart the terminal)
+nvm install 21
+# verifies the right Node.js version is in the environment
+node -v # should print `v21.7.3`
+# verifies the right npm version is in the environment
+npm -v # should print `10.5.0`
+
+#Afterinstallation run output
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+#Verify installations
+node -v
+npm -v
+
+#create account on cloudinary website and mapbox
+#setup cloudinaru
+npm i cloudinary
+
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configuration
+cloudinary.config({ 
+        cloud_name: 'dbenzjbq0', 
+        api_key: '178981375737129', 
+        api_secret: 'uJ5By1ifZm4X5bxBO2pIyqf789Y' // Click 'View Credentials' below to copy your API secret
+    });
+
+#Create token on mapbox & copypaste
+
+#configure online mongodb - get the uri
+#and set network access 0.0.0./0 to access from everywhere
+
+#git clone project repo
+git clone https://github.com/jaiswaladi246/3-Tier-Full-Stack.git
+
+# install all dependencies
+npm install
+
+#create env file with tokens/secrets
+vi .env
+CLOUDINARY_CLOUD_NAME=dbenzjbq0
+CLOUDINARY_KEY=178981375737129
+CLOUDINARY_SECRET=uJ5By1ifZm4X5bxBO2pIyqf789Y
+MAPBOX_TOKEN=sk.eyJ1IjoicHJhbmVldGgxMjMiLCJhIjoiY2x5d21ndHh5MGZ2eDJpb2k0d201d2k3MyJ9.UkyAjMHJCmYx-BW2Bk8SsA
+DB_URL="mongodb+srv://praneethchitturi12:iamtheleaderofxman@cluster0.hlnyouu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+SECRET=devopsshack
+:wq
+
+#start app
+npm start
+
+#Access application - PublicIP(VM) + 3000(Port)
+#Register by creating account on portal
+#datarecord will be logged onto the db connected

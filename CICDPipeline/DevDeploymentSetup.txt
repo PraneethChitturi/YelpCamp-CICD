@@ -1,0 +1,80 @@
+#Setup another VM for Jenkins and connect in MobaXterm
+
+#Create VM for SonarQube
+
+sudo apt update
+
+#install java on Jenkins VM
+sudo apt install openjdk-17-jre-headless
+
+
+
+#install jenkins on Jenkins VM
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt-get update
+sudo apt-get install jenkins
+
+vi jenkins.sh
+sudo chmod +x jenkins.sh
+./jenkins.sh
+
+
+#install docker
+sudo snap install docker 
+
+
+#Open Jenkins with Public IP+Port(default8080) -> on portal mentioned where to find admin password
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+#Install suggested plugins on portal after log in and create account after install
+#Setup profile/accccount on jenkins
+
+#By Default..only root user has access to run docker commands
+#To let all access
+sudo chmod 666 /var/run/docker.sock
+
+
+#Install docker and confugre access on SonarQube server as well
+#Will run on Port 9090 by default...and beginning user and password are both admin
+
+#Install Plugins in Jenkins
+nodejs
+SonarQube Scanner
+Docker
+Docker Pipeline
+Kubernetes
+Kubernetes CLI
+#Trivy plugin not available in jenkins - so directly install in VM
+sudo apt-get install wget apt-transport-https gnupg lsb-release
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+sudo apt-get update
+sudo apt-get install trivy
+
+vi trivy.sh
+sudo chmod +x trivy.sh
+./trivy.sh
+
+
+#Cofigure above plugins in tools by giving name and method of installation
+#Configure SonarQube server to be accessible by jenkins which is different from sonarqube-scanner
+#Input token generated from sonarqube server (Security>users>generate token) into Jenkins Global Credentials
+#Input Github token as password in Jenking Global creds for github access
+
+#Start builiding pipeline in Jenkins
+#Configure sonar-scanner with jenkins (Go to Manager Jenkins -> System -> Add SonarQube Installations and paste sonar server url + token)
+
+
+#Problems encountered during build
+# 1. Docker hub credentials to be given
+# 2. Sonar Qube server env needs to be given
+# 3. Trivy install on Jenkins not on sonarqube server
+# 4. If encountered error on Docker -Sorry, home directories outside of /home needs configuration.
+#	Reinstall Docker on sudo rather than Snapd and #To let all access -> sudo chmod 666 /var/run/docker.sock
+# 5. Change source code to contain .env variables
+
+#After run in DevPipeline - at last docker compose in pipeline will push it to JEnkins IP+3000 port for viewable

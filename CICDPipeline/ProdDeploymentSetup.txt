@@ -1,0 +1,182 @@
+AWSCLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt install unzip
+unzip awscliv2.zip
+sudo ./aws/install
+aws configure
+KUBECTL
+curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+sudo mv ./kubectl /usr/local/bin
+kubectl version --short --client
+EKSCTL
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+eksctl version
+
+
+#copy above and install
+vi ctl.sh
+sudo chmod +x ctl.sh
+./ctl.sh
+
+#For the AWS configure it will ask for key
+#create user in AWS>IAM and give certain permissions (create policies) and generate user access key
+#Guide -> https://github.com/jaiswaladi246/EKS-Complete/blob/main/Steps-eks.md
+#Create EKS Cluster
+eksctl create cluster --name=EKS-5 \
+                      --region=us-east-1 \
+                      --zones=us-east-1a,us-east-1b \
+                      --version=1.30 \
+                      --without-nodegroup
+#Associate IAM defined with cluster
+eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster EKS-5 \
+    --approve
+
+#Create Nodegroup with #of worker nodes
+eksctl create nodegroup --cluster=EKS-5 \
+                       --region=us-east-1 \
+                       --name=node2 \
+                       --node-type=t3.medium \
+                       --nodes=3 \
+                       --nodes-min=2 \
+                       --nodes-max=3 \
+                       --node-volume-size=20 \
+                       --ssh-access \
+                       --ssh-public-key=DevopsCICD \
+                       --managed \
+                       --asg-access \
+                       --external-dns-access \
+                       --full-ecr-access \
+                       --appmesh-access \
+                       --alb-ingress-access
+
+#While doing all above- make sure AWS Zones remain same for services and everything - otherwise resources in one zone cannot be accessed by other
+
+#Check if kubernetes is running
+kubectl get nodes
+
+#Go to EKS cluster on AWS -> click on cluster -> networking -> security group -> 
+#	select one responsible for communication bw Worker & Master node -> 
+#	Add 'All Traffic' from 'All Source' for effective communication
+
+#Make Service Account on Kubernetes cluster (RBAC)
+kubectl create namespace webapps
+#Account
+vi svc.yml
+#Copy below
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: webapps
+#
+kubectl apply -f svc.yml
+
+#Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+  namespace: webapps
+rules:
+  - apiGroups:
+        - ""
+        - apps
+        - autoscaling
+        - batch
+        - extensions
+        - policy
+        - rbac.authorization.k8s.io
+    resources:
+      - pods
+      - secrets
+      - componentstatuses
+      - configmaps
+      - daemonsets
+      - deployments
+      - events
+      - endpoints
+      - horizontalpodautoscalers
+      - ingress
+      - jobs
+      - limitranges
+      - namespaces
+      - nodes
+      - pods
+      - persistentvolumes
+      - persistentvolumeclaims
+      - resourcequotas
+      - replicasets
+      - replicationcontrollers
+      - serviceaccounts
+      - services
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+#Bind Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-rolebinding
+  namespace: webapps 
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-role 
+subjects:
+- namespace: webapps 
+  kind: ServiceAccount
+  name: jenkins 
+
+#Generate token for service account
+https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#:~:text=To%20create%20a%20non%2Dexpiring,with%20that%20generated%20token%20data.
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: mysecretname
+  annotations:
+    kubernetes.io/service-account.name: jenkins
+
+#Secret create in namespace webapps
+kubectl apply -f sec.yaml -n webapps
+#Access secret token
+kubectl describe secret mysecretname -n webapps
+#
+eyJhbGciOiJSUzI1NiIsImtpZCI6IlVac2ZWd09xaFNwYThxZUdqLThFSVpaSVNBTy1FUFJTaGYtV1pyVnB6WWcifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3ZWJhcHBzIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6Im15c2VjcmV0bmFtZSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJqZW5raW5zIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiYjMzMTk3YWMtZWEzZC00OTdkLWEyN2EtNGU0MGJhZmE0NmM0Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndlYmFwcHM6amVua2lucyJ9.J3MYO0d74wWLlnRU_M0pIyeCFvQPvWWkC3_Ltc5eHttipniC7jozEkIl3-hqfUESMbPqUV_sF3NH8mmSas25mAGrAFraqHfghhKsjtyJ_AFw8KVFSImRE7fTGad3LWsZ8cGG8irZEoek6Yz43QFZZGtdHIE3ItA3Eb5CCN6N7eo0KQWgD5g8v25nQw3JcKHgQ56TD8EydU1Jg719z-hn6Ie6vMI0IaIEli5dtnIRYKJoM4jAAbTe9qJVvIwow5WWsNtzu1HRFNkJDf7wgc1kOP7v5k9UYC9ilBIgrBE7kX4nr1wEWWjGUMpUkK3pmkicMQgkfh7844FnpJ9KDUBHbQ
+
+
+
+#Create Production Pipeline in Jenkins
+#Copy paste dev pipeline for starting point
+#Creds/Secrets/tokens/DB will all generally change for Prod
+#encode creds into base 64
+#Encodce base64 - echo xyz | base64
+CLOUDINARY_CLOUD_NAME=ZGJlbnpqYnEwCg==
+CLOUDINARY_KEY=MTc4OTgxMzc1NzM3MTI5Cg==
+CLOUDINARY_SECRET=dUo1QnkxaWZabTRYNWJ4Qk8ycEl5cWY3ODlZCg==
+MAPBOX_TOKEN=c2suZXlKMUlqb2ljSEpoYm1WbGRHZ3hNak1pTENKaElqb2lZMng1ZDIxbmRIaDVNR1oyZURKcGIyazBkMjAxZDJrM015SjkuVWt5QWpNSEpDbVl4LUJXMkJrOFNzQQo=
+DB_URL=bW9uZ29kYitzcnY6Ly9wcmFuZWV0aGNoaXR0dXJpMTI6aWFtdGhlbGVhZGVyb2Z4bWFuQGNsdXN0
+ZXIwLmhsbnlvdXUubW9uZ29kYi5uZXQvP3JldHJ5V3JpdGVzPXRydWUmdz1tYWpvcml0eSZhcHBO
+YW1lPUNsdXN0ZXIwCg==
+SECRET=ZGV2b3Bzc2hhY2sK
+
+#Store them in manifest>dss.yaml file where they will be stored as secret resource objects
+#in source code #Edit docker container in the file as well and pipeline
+#this file contains all kubernetes resources/deployments/secrets/mappings etc
+
+
+#Add steps to kubernetes deployment - deploy and verify
+
+#In Local terminal verify
+kubectl get pods -n webapps
+kubectl get all -n webapps
+
+#to see all pods are working fine and go into detail
+kubectl logs {POD_NAME} -n webapps
+kubectl describe {POD_NAME} -n webapps
+
+
+#Access application through ELB Load balaNCER url

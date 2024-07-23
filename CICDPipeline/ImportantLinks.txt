@@ -1,0 +1,4 @@
+SonarQube- 35.88.100.19:9000
+Jenkins- http://35.90.195.65:8080/
+
+Application- http://54.190.69.185:3000/
